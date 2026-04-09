@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>WebGIS Leaflet</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    display: flex;
+}
+
+/* SIDEBAR */
+.sidebar {
+    width: 280px;
+    padding: 15px;
+    border-right: 2px solid #333;
+    background: #f9f9f9;
+}
+
+/* MAP */
+#map {
+    flex: 1;
+    height: 100vh;
+}
+
+/* box dalam sidebar */
+.box {
+    border: 1px solid #333;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+/* tombol */
+button {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+/* legenda */
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.legend-color {
+    width: 15px;
+    height: 15px;
+    margin-right: 10px;
+}
+
+.red { background: red; }
+.blue { background: blue; }
+.green { background: green; }
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+
+<div class="box">
+<b>Nama:</b><br>
+Salissabila Utami Putri<br>
+<b>NIM:</b><br>
+24/544844/SV/25544
+</div>
+
+<div class="box">
+<button onclick="addMarker('red')">Marker Merah</button>
+<button onclick="addMarker('blue')">Marker Biru</button>
+<button onclick="addMarker('green')">Marker Hijau</button>
+
+<button onclick="clearMarkers()">Clear Marker</button>
+<button onclick="toggleLayer()">Toggle Layer</button>
+</div>
+
+<div class="box">
+<p id="coord">Klik peta</p>
+</div>
+
+<div class="box">
+<b>Legenda</b>
+<div class="legend-item">
+    <div class="legend-color red"></div> Lokasi A
+</div>
+<div class="legend-item">
+    <div class="legend-color blue"></div> Lokasi B
+</div>
+<div class="legend-item">
+    <div class="legend-color green"></div> Lokasi C
+</div>
+</div>
+
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// MAP
+let map = L.map('map').setView([-7.7956, 110.3695], 13);
+
+// BASEMAP
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+// CLASS OOP
+class MyMarker {
+    constructor(lat, lon, color) {
+        this.marker = L.circleMarker([lat, lon], {
+            color: color,
+            radius: 8
+        });
+
+        this.marker.bindPopup(
+            "Marker " + color +
+            "<br>Lat: " + lat.toFixed(5) +
+            "<br>Lon: " + lon.toFixed(5)
+        );
+    }
+
+    addTo(layer) {
+        this.marker.addTo(layer);
+    }
+
+    remove() {
+        this.marker.remove();
+    }
+}
+
+// DATA
+let markerLayer = L.layerGroup().addTo(map);
+let markers = [];
+let visible = true;
+
+// TAMBAH
+function addMarker(color) {
+    let lat = map.getCenter().lat + (Math.random() - 0.5) * 0.01;
+    let lon = map.getCenter().lng + (Math.random() - 0.5) * 0.01;
+
+    let m = new MyMarker(lat, lon, color);
+    m.addTo(markerLayer);
+    markers.push(m);
+}
+
+// CLEAR
+function clearMarkers() {
+    markers.forEach(m => m.remove());
+    markers = [];
+}
+
+// TOGGLE
+function toggleLayer() {
+    if (visible) {
+        map.removeLayer(markerLayer);
+    } else {
+        map.addLayer(markerLayer);
+    }
+    visible = !visible;
+}
+
+// KLIK PETA
+map.on('click', function(e) {
+    document.getElementById("coord").innerHTML =
+        "Lat: " + e.latlng.lat.toFixed(5) +
+        "<br>Lon: " + e.latlng.lng.toFixed(5);
+});
+</script>
+
+</body>
+</html>
