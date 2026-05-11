@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>OGC Services — Korea WMS & WFS</title>
+
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/ol@10.8.0/dist/ol.css" />
+
+    <style>
+
+        :root {
+
+            --panel-bg: rgba(255,255,255,0.94);
+            --panel-border: rgba(15,23,42,0.08);
+            --panel-shadow: 0 12px 30px rgba(15,23,42,0.14);
+
+            --text-main:#0f172a;
+            --text-muted:#64748b;
+
+            --wms-color:#2563eb;
+            --wfs-color:#059669;
+
+        }
+
+        body{
+            margin:0;
+            font-family:
+              "Segoe UI",
+              Tahoma,
+              Geneva,
+              Verdana,
+              sans-serif;
+
+            color:var(--text-main);
+        }
+
+        #map{
+            width:100%;
+            height:100vh;
+        }
+
+        .ol-popup{
+
+            position:absolute;
+
+            background:#fff;
+
+            border-radius:10px;
+
+            padding:10px 14px;
+
+            font-size:13px;
+
+            box-shadow:
+              0 4px 16px rgba(0,0,0,0.18);
+
+            max-width:280px;
+
+            transform:
+              translate(-50%,-110%);
+
+            line-height:1.45;
+
+        }
+
+        .ol-popup table{
+
+            border-collapse:collapse;
+
+            margin-top:5px;
+
+            font-size:12px;
+
+        }
+
+        .ol-popup td{
+            padding:2px 6px 2px 0;
+        }
+
+        .src-tag{
+
+            display:inline-block;
+
+            font-size:10px;
+
+            font-weight:700;
+
+            padding:2px 6px;
+
+            border-radius:4px;
+
+            color:white;
+
+            margin-bottom:4px;
+
+        }
+
+        .src-tag.wms{
+            background:var(--wms-color);
+        }
+
+        .src-tag.wfs{
+            background:var(--wfs-color);
+        }
+
+        /* PANEL */
+
+        #layer-panel{
+
+            position:fixed;
+
+            top:1rem;
+            right:1rem;
+
+            z-index:100;
+
+            min-width:240px;
+
+            padding:1rem;
+
+            background:var(--panel-bg);
+
+            border:
+              1px solid var(--panel-border);
+
+            border-radius:14px;
+
+            box-shadow:
+              var(--panel-shadow);
+
+            backdrop-filter:blur(10px);
+
+            font-size:13px;
+
+        }
+
+        #layer-panel h3{
+
+            margin:0 0 0.5rem 0;
+
+            font-size:12px;
+
+            text-transform:uppercase;
+
+            color:var(--text-muted);
+
+        }
+
+        .layer-toggle{
+
+            display:flex;
+
+            align-items:center;
+
+            gap:0.5rem;
+
+            padding:0.4rem 0;
+
+        }
+
+        .swatch{
+
+            width:14px;
+            height:14px;
+
+            border-radius:3px;
+
+        }
+
+        .swatch.wms{
+            background:var(--wms-color);
+        }
+
+        .swatch.wfs{
+            background:var(--wfs-color);
+        }
+
+        #btn-wfs-extent{
+
+            margin-top:0.6rem;
+
+            width:100%;
+
+            padding:0.45rem;
+
+            background:var(--wfs-color);
+
+            border:none;
+
+            color:white;
+
+            border-radius:7px;
+
+            cursor:pointer;
+
+        }
+
+        /* REQUEST LOG */
+
+        #request-log{
+
+            position:fixed;
+
+            top:1rem;
+            left:1rem;
+
+            z-index:100;
+
+            max-width:420px;
+
+            max-height:40vh;
+
+            overflow-y:auto;
+
+            padding:0.8rem;
+
+            background:var(--panel-bg);
+
+            border:
+              1px solid var(--panel-border);
+
+            border-radius:14px;
+
+            box-shadow:
+              var(--panel-shadow);
+
+            backdrop-filter:blur(10px);
+
+            font-size:11px;
+
+        }
+
+        #request-log h3{
+
+            margin:0 0 0.5rem 0;
+
+            font-size:12px;
+
+            color:var(--text-muted);
+
+        }
+
+        .entry{
+
+            padding:0.35rem 0;
+
+            border-bottom:
+              1px dashed var(--panel-border);
+
+            word-break:break-all;
+
+            font-family:Consolas;
+
+        }
+
+        .label{
+
+            display:inline-block;
+
+            font-size:10px;
+
+            font-weight:700;
+
+            padding:1px 5px;
+
+            border-radius:3px;
+
+            color:white;
+
+            margin-right:4px;
+
+        }
+
+        .label.wms{
+            background:var(--wms-color);
+        }
+
+        .label.wfs{
+            background:var(--wfs-color);
+        }
+
+        .label.gfi{
+            background:#f59e0b;
+        }
+
+        #attribution-display{
+
+            position:fixed;
+
+            right:1rem;
+            bottom:1rem;
+
+            z-index:100;
+
+            padding:0.45rem 0.75rem;
+
+            background:var(--panel-bg);
+
+            border:
+              1px solid var(--panel-border);
+
+            border-radius:14px;
+
+            font-size:11px;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <!-- LAYER PANEL -->
+
+    <div id="layer-panel">
+
+        <h3>Basemap</h3>
+
+        <label class="layer-toggle">
+
+            <input type="radio"
+                   name="basemap"
+                   value="osm"
+                   checked>
+
+            <span class="swatch"
+                  style="background:#94a3b8">
+            </span>
+
+            <span>OSM</span>
+
+        </label>
+
+        <label class="layer-toggle">
+
+            <input type="radio"
+                   name="basemap"
+                   value="none">
+
+            <span class="swatch"
+                  style="background:#e2e8f0">
+            </span>
+
+            <span>None</span>
+
+        </label>
+
+        <h3 style="margin-top:0.75rem">
+            Layers
+        </h3>
+
+        <label class="layer-toggle">
+
+            <input type="checkbox"
+                   id="toggle-wms"
+                   checked>
+
+            <span class="swatch wms"></span>
+
+            <span>WMS Korea</span>
+
+        </label>
+
+        <label class="layer-toggle">
+
+            <input type="checkbox"
+                   id="toggle-wfs"
+                   checked>
+
+            <span class="swatch wfs"></span>
+
+            <span>WFS Korea</span>
+
+        </label>
+
+        <button id="btn-wfs-extent">
+            Zoom to Korea
+        </button>
+
+    </div>
+
+    <!-- REQUEST LOG -->
+
+    <div id="request-log">
+
+        <h3>Request Log</h3>
+
+        <div id="request-log-entries"></div>
+
+    </div>
+
+    <!-- ATTRIBUTION -->
+
+    <div id="attribution-display">
+        © OpenStreetMap · GeoServer
+    </div>
+
+    <!-- OPENLAYERS -->
+
+    <script src="https://cdn.jsdelivr.net/npm/ol@10.8.0/dist/ol.js"></script>
+
+    <script>
+
+        // ======================================
+        // CONFIG
+        // ======================================
+
+        const geoserver =
+          "https://ahocevar.com/geoserver";
+
+        const layerName =
+          "ne:ne_10m_admin_0_countries";
+
+        const cqlFilter =
+          "NAME='South Korea'";
+
+        // ======================================
+        // REQUEST LOG
+        // ======================================
+
+        const logContainer =
+          document.getElementById(
+            "request-log-entries"
+          );
+
+        function addLog(type,text){
+
+            const div =
+              document.createElement("div");
+
+            div.className =
+              "entry";
+
+            div.innerHTML =
+              `<span class="label ${type}">
+                ${type.toUpperCase()}
+              </span> ${text}`;
+
+            logContainer.prepend(div);
+
+        }
+
+        // ======================================
+        // BASEMAP
+        // ======================================
+
+        const osmLayer =
+          new ol.layer.Tile({
+
+            source:
+              new ol.source.OSM()
+
+          });
+
+        // ======================================
+        // WMS
+        // ======================================
+
+        const wmsUrl =
+          `${geoserver}/wms`;
+
+        addLog("wms",wmsUrl);
+
+        const wmsLayer =
+          new ol.layer.Tile({
+
+            source:
+              new ol.source.TileWMS({
+
+                url:wmsUrl,
+
+                params:{
+
+                    LAYERS:
+                      layerName,
+
+                    TILED:true,
+
+                    CQL_FILTER:
+                      cqlFilter
+
+                },
+
+                serverType:
+                  "geoserver"
+
+              }),
+
+            visible:true
+
+          });
+
+        // ======================================
+        // WFS
+        // ======================================
+
+        const wfsUrl =
+          `${geoserver}/wfs?` +
+          `service=WFS&` +
+          `version=1.0.0&` +
+          `request=GetFeature&` +
+          `typeName=${layerName}&` +
+          `outputFormat=application/json&` +
+          `CQL_FILTER=${encodeURIComponent(cqlFilter)}`;
+
+        addLog("wfs",wfsUrl);
+
+        const wfsSource =
+          new ol.source.Vector({
+
+            format:
+              new ol.format.GeoJSON(),
+
+            url:wfsUrl
+
+          });
+
+        const wfsLayer =
+          new ol.layer.Vector({
+
+            source:wfsSource,
+
+            style:
+              new ol.style.Style({
+
+                stroke:
+                  new ol.style.Stroke({
+
+                    color:"#dc2626",
+                    width:3
+
+                  }),
+
+                fill:
+                  new ol.style.Fill({
+
+                    color:
+                      "rgba(220,38,38,0.2)"
+
+                  })
+
+              })
+
+          });
+
+        // ======================================
+        // MAP
+        // ======================================
+
+        const map =
+          new ol.Map({
+
+            target:"map",
+
+            layers:[
+
+                osmLayer,
+                wmsLayer,
+                wfsLayer
+
+            ],
+
+            view:
+              new ol.View({
+
+                center:
+                  ol.proj.fromLonLat(
+                    [127.7669,35.9078]
+                  ),
+
+                zoom:7
+
+              })
+
+          });
+
+        // ======================================
+        // POPUP
+        // ======================================
+
+        const popupElement =
+          document.createElement("div");
+
+        popupElement.className =
+          "ol-popup";
+
+        document.body.appendChild(
+          popupElement
+        );
+
+        const popup =
+          new ol.Overlay({
+
+            element:
+              popupElement,
+
+            positioning:
+              "bottom-center",
+
+            stopEvent:false,
+
+            offset:[0,-10]
+
+          });
+
+        map.addOverlay(popup);
+
+        // ======================================
+        // FIT TO WFS
+        // ======================================
+
+        wfsSource.once(
+
+          "featuresloadend",
+
+          function(){
+
+            map.getView().fit(
+
+              wfsSource.getExtent(),
+
+              {
+                padding:[50,50,50,50],
+                duration:1000
+              }
+
+            );
+
+          }
+
+        );
+
+        // ======================================
+        // CLICK POPUP
+        // ======================================
+
+        map.on(
+
+          "singleclick",
+
+          function(evt){
+
+            popup.setPosition(undefined);
+
+            map.forEachFeatureAtPixel(
+
+              evt.pixel,
+
+              function(feature){
+
+                const props =
+                  feature.getProperties();
+
+                let html =
+                  `<div class="src-tag wfs">
+                    WFS
+                  </div>`;
+
+                html += "<table>";
+
+                for(const key in props){
+
+                    if(key !== "geometry"){
+
+                        html += `
+                          <tr>
+                            <td>${key}</td>
+                            <td>${props[key]}</td>
+                          </tr>
+                        `;
+
+                    }
+
+                }
+
+                html += "</table>";
+
+                popupElement.innerHTML =
+                  html;
+
+                popup.setPosition(
+                  evt.coordinate
+                );
+
+              }
+
+            );
+
+          }
+
+        );
+
+        // ======================================
+        // TOGGLE WMS
+        // ======================================
+
+        document
+          .getElementById(
+            "toggle-wms"
+          )
+          .addEventListener(
+
+            "change",
+
+            function(){
+
+                wmsLayer.setVisible(
+                  this.checked
+                );
+
+            }
+
+          );
+
+        // ======================================
+        // TOGGLE WFS
+        // ======================================
+
+        document
+          .getElementById(
+            "toggle-wfs"
+          )
+          .addEventListener(
+
+            "change",
+
+            function(){
+
+                wfsLayer.setVisible(
+                  this.checked
+                );
+
+            }
+
+          );
+
+        // ======================================
+        // ZOOM BUTTON
+        // ======================================
+
+        document
+          .getElementById(
+            "btn-wfs-extent"
+          )
+          .addEventListener(
+
+            "click",
+
+            function(){
+
+                map.getView().fit(
+
+                  wfsSource.getExtent(),
+
+                  {
+                    padding:[50,50,50,50],
+                    duration:1000
+                  }
+
+                );
+
+            }
+
+          );
+
+        // ======================================
+        // BASEMAP SWITCH
+        // ======================================
+
+        document
+          .querySelectorAll(
+            'input[name="basemap"]'
+          )
+          .forEach(radio => {
+
+            radio.addEventListener(
+
+              "change",
+
+              function(){
+
+                if(this.value === "osm"){
+
+                    osmLayer.setVisible(
+                      true
+                    );
+
+                }else{
+
+                    osmLayer.setVisible(
+                      false
+                    );
+
+                }
+
+              }
+
+            );
+
+          });
+
+    </script>
+
+</body>
+
+</html>
